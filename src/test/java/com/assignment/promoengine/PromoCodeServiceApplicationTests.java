@@ -35,11 +35,10 @@ public class PromoCodeServiceApplicationTests {
 
     @Test
     void testConcurrentRedemptionsExceedingLimit() throws InterruptedException {
-        String testCode = "SUMMER5";
+        String testCode = "SUMMERS";
         int maxAllowed = 5;
         
-        // 1. Pre-create a promo code with maxRedemptions = 5
-        PromoCode promo = new PromoCode(testCode, maxAllowed);
+        PromoCode promo = new PromoCode(testCode, maxAllowed, 0, true);
         promoCodeRepository.save(promo);
 
         // We will fire 50 concurrent threads trying to redeem the same code
@@ -49,7 +48,6 @@ public class PromoCodeServiceApplicationTests {
 
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger failureCount = new AtomicInteger(0);
-
         for (int i = 0; i < totalThreads; i++) {
             final int userIdSuffix = i;
             executorService.submit(() -> {
@@ -58,12 +56,15 @@ public class PromoCodeServiceApplicationTests {
                     String orderId = "order_" + userIdSuffix;
                     
                     var response = checkoutClientService.simulateCheckoutRedemption(port, testCode, userId, orderId);
-                    
-                    if (response.getStatusCode() == 200 && response.getBody() != null) {
+                    if (response.getStatusCode().is2xxSuccessful()) {
                         successCount.incrementAndGet();
                     } else {
                         failureCount.incrementAndGet();
+                        System.err.println("FAILED -> Status: " + response.getStatusCode() + " | Body: " + response.getBody());
                     }
+                } catch (Exception e) {
+                    failureCount.incrementAndGet();
+                    System.err.println("EXCEPTION IN THREAD -> " + e.getClass().getName() + ": " + e.getMessage());
                 } finally {
                     latch.countDown();
                 }

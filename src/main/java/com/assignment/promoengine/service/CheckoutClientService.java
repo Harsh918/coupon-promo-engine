@@ -1,49 +1,35 @@
 package com.assignment.promoengine.service;
 
-import java.util.Map;
-
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestTemplate;
 
-import com.assignment.promoengine.model.Redemption;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class CheckoutClientService {
 
-    private final RestClient restClient;
+    private final RestTemplate restTemplate = new RestTemplate();
 
-    public CheckoutClientService() {
-        this.restClient = RestClient.create();
-    }
-
-    public ResponseEntityWrapper<Redemption> simulateCheckoutRedemption(int port, String code, String userId, String orderId) {
+    public ResponseEntity<String> simulateCheckoutRedemption(int port, String code, String userId, String orderId) {
         String url = "http://localhost:" + port + "/promo-codes/" + code + "/redeem";
-        Map<String, String> payload = Map.of("userId", userId, "orderId", orderId);
 
-        try {
-            ResponseEntity<Redemption> response = restClient.post()
-                    .uri(url)
-                    .body(payload)
-                    .retrieve()
-                    .toEntity(Redemption.class);
-            return new ResponseEntityWrapper<>(response.getStatusCode().value(), response.getBody());
-        } catch (HttpClientErrorException e) {
-            return new ResponseEntityWrapper<>(e.getStatusCode().value(), null);
-        }
-    }
+        // Set headers to application/json
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
 
-    public static class ResponseEntityWrapper<T> {
-        private final int statusCode;
-        private final T body;
+        // Construct request payload body matching your DTO/Controller expectation
+        Map<String, String> requestBody = new HashMap<>();
+        requestBody.put("userId", userId);
+        requestBody.put("orderId", orderId);
 
-        public ResponseEntityWrapper(int statusCode, T body) {
-            this.statusCode = statusCode;
-            this.body = body;
-        }
+        HttpEntity<Map<String, String>> requestEntity = new HttpEntity<>(requestBody, headers);
 
-        public int getStatusCode() { return statusCode; }
-        public T getBody() { return body; }
+        // Send POST request
+        return restTemplate.postForEntity(url, requestEntity, String.class);
     }
 }
